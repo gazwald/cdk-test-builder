@@ -1,38 +1,10 @@
-#!/usr/bin/env python
 import json
-from string import Template
 
 import yaml
-# https://github.com/gazwald/finder.git
-from finder import Finder
+from finder import \
+    Finder  # pip install git+https://github.com/gazwald/finder.git
 
-header: str = """
-#!/usr/bin/env python
-import pytest
-from aws_cdk.assertions import Match, Template
-
-"""
-
-class_template = Template(
-    """
-class test_$class_name:
-    def __init__(self):
-        pass
-
-"""
-)
-
-function_template = Template(
-    """
-    def test_$function_name(self, stack_template):
-        stack_template.has_resource_properties(
-            "$resource_type",
-            $resource_properties
-        )
-
-"""
-)
-
+from builder.templates import class_template, function_template, header
 
 resource_exclusions: list[str] = ["AWS::CDK::Metadata"]
 
@@ -68,7 +40,7 @@ def process_template(template, output_filename: str = "test.py"):
                 handle.write(function_definition)
 
 
-def main(filename: str):
+def builder(filename: str):
     with open(filename) as handle:
         if filename.endswith("json"):
             template = json.load(handle)
@@ -81,7 +53,3 @@ def main(filename: str):
 
     if template:
         process_template(template)
-
-
-if __name__ == "__main__":
-    main("template.json")
