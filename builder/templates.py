@@ -9,7 +9,7 @@ from aws_cdk.assertions import Match, Template
 
 class_template = Template(
     """
-class test_$class_name:
+class Test$class_name:
     def __init__(self):
         pass
 

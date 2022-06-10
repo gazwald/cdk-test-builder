@@ -1,4 +1,5 @@
 import json
+import subprocess
 
 import yaml
 from finder import \
@@ -7,9 +8,10 @@ from finder import \
 from builder.templates import class_template, function_template, header
 
 resource_exclusions: list[str] = ["AWS::CDK::Metadata"]
+method_references: dict[str, str] = {"MATCH_ANY_VALUE": "Match.any_value()"}
 
 
-def process_template(template, output_filename: str = "test.py"):
+def process_template(template, output_filename: str):
     resources = template.get("Resources", None)
     app_name: str
     class_name: str
@@ -35,7 +37,7 @@ def process_template(template, output_filename: str = "test.py"):
 
                 resource_properties = find.replace(
                     resource_properties,
-                    "Match.any_value()",
+                    "MATCH_ANY_VALUE",
                 )
 
                 function_definition = function_template.substitute(
@@ -47,16 +49,24 @@ def process_template(template, output_filename: str = "test.py"):
                 handle.write(function_definition)
 
 
-def builder(filename: str):
-    with open(filename) as handle:
-        if filename.endswith("json"):
+def cleanup_references(output_filename: str):
+    for key, value in method_references.items():
+        subprocess.run(
+            ["sed", "-i", f"'s/'{key}'/{value}/g'", output_filename], check=True
+        )
+
+
+def builder(input_template: str, output_filename: str = "test.py"):
+    with open(input_template) as handle:
+        if input_template.endswith("json"):
             template = json.load(handle)
-        elif filename.endswith("yaml"):
+        elif input_template.endswith("yaml"):
             template = yaml.safe_load(handle)
-        elif filename.endswith("yml"):
+        elif input_template.endswith("yml"):
             template = yaml.safe_load(handle)
         else:
             template = None
 
     if template:
-        process_template(template)
+        process_template(template, output_filename)
+        cleanup_references(output_filename)
