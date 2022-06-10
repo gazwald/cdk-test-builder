@@ -11,12 +11,19 @@ resource_exclusions: list[str] = ["AWS::CDK::Metadata"]
 
 def process_template(template, output_filename: str = "test.py"):
     resources = template.get("Resources", None)
-    metadata = resources["CDKMetadata"]["Metadata"]
+    app_name: str
+    class_name: str
+
+    if "CDKMetadata" in resources:
+        metadata = resources["CDKMetadata"]["Metadata"]
+        app_name = metadata["aws:cdk:path"].split("/")[0]
+        class_name = app_name.title().replace("-", "")
+    else:
+        class_name = "TestMyStack"
 
     with open(output_filename, "w") as handle:
         handle.write(header)
 
-        class_name = metadata["aws:cdk:path"].split("/")[0].replace("-", "_")
         class_definition = class_template.substitute(class_name=class_name)
         handle.write(class_definition)
 
