@@ -52,7 +52,7 @@ def process_template(template, output_filename: str):
 def cleanup_references(output_filename: str):
     for key, value in method_references.items():
         subprocess.run(
-            ["sed", "-i", f"'s/'{key}'/{value}/g'", output_filename], check=True
+            ["sed", "-i", f"s/'{key}'/{value}/g", output_filename], check=True
         )
 
 
