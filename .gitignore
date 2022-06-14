@@ -1,5 +1,7 @@
-template.json
-test.py
+*.json
+*.yml
+*.yaml
+test*.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
