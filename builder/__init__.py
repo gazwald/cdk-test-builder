@@ -1,20 +1,60 @@
 import json
 import subprocess
+from pathlib import Path
 
 import yaml
-from finder import \
-    Finder  # pip install git+https://github.com/gazwald/finder.git
 
 from builder.templates import class_template, function_template, header
+from finder.finder import Finder
 
 resource_exclusions: list[str] = ["AWS::CDK::Metadata"]
 method_references: dict[str, str] = {"MATCH_ANY_VALUE": "Match.any_value()"}
 
 
-def process_template(template, output_filename: str):
+def load_template(input_template: str):
+    template = None
+    if not Path(input_template).exists():
+        return template
+
+    with open(input_template) as handle:
+        if input_template.endswith("json"):
+            template = json.load(handle)
+        elif input_template.endswith("yaml") or input_template.endswith("yml"):
+            template = yaml.safe_load(handle)
+
+    return template
+
+
+def generate_output_filename(input_filename: str) -> str:
+    """
+    Generate a filename based on the input template name, for example:
+    input: template.json
+    output: test_template.py
+
+    If 'test_template.py' already exists:
+    output: test_template_1.py
+    """
+    output_filename: str = Path(input_filename).stem.replace("-", "_").replace(".", "_")
+    if not output_filename.startswith("test_"):
+        output_filename = "test_" + output_filename
+
+    if Path(output_filename + ".py").exists():
+        # Could generate test_template_1_1_1_1_1.py
+        generate_output_filename(output_filename + "_1")
+
+    output_filename = output_filename + ".py"
+
+    return output_filename
+
+
+def process_template(template, input_filename: str, output_filename: str):
     resources = template.get("Resources", None)
     app_name: str
     class_name: str
+
+    if not resources:
+        print(f"No resources found in {input_filename} - skipping")
+        return
 
     if "CDKMetadata" in resources:
         metadata = resources["CDKMetadata"]["Metadata"]
@@ -22,6 +62,9 @@ def process_template(template, output_filename: str):
         class_name = app_name.title().replace("-", "")
     else:
         class_name = "TestMyStack"
+        print(
+            f"No CDKMetadata found in {input_filename} - using default classname {class_name}"
+        )
 
     with open(output_filename, "w") as handle:
         handle.write(header)
@@ -33,40 +76,35 @@ def process_template(template, output_filename: str):
         for resource_name, resource_details in resources.items():
             resource_type = resource_details["Type"]
             if resource_type not in resource_exclusions:
-                resource_properties = resource_details["Properties"]
+                resource_properties = resource_details.get("Properties", None)
+                if resource_properties:
+                    resource_properties = find.replace(
+                        resource_properties,
+                        "MATCH_ANY_VALUE",
+                    )
 
-                resource_properties = find.replace(
-                    resource_properties,
-                    "MATCH_ANY_VALUE",
-                )
+                    function_definition = function_template.substitute(
+                        function_name=resource_name,
+                        resource_type=resource_type,
+                        resource_properties=resource_properties,
+                    )
 
-                function_definition = function_template.substitute(
-                    function_name=resource_name,
-                    resource_type=resource_type,
-                    resource_properties=resource_properties,
-                )
-
-                handle.write(function_definition)
+                    handle.write(function_definition)
 
 
-def cleanup_references(output_filename: str):
+def post_processing(output_filename: str):
     for key, value in method_references.items():
         subprocess.run(
             ["sed", "-i", f"s/'{key}'/{value}/g", output_filename], check=True
         )
 
 
-def builder(input_template: str, output_filename: str = "test.py"):
-    with open(input_template) as handle:
-        if input_template.endswith("json"):
-            template = json.load(handle)
-        elif input_template.endswith("yaml"):
-            template = yaml.safe_load(handle)
-        elif input_template.endswith("yml"):
-            template = yaml.safe_load(handle)
-        else:
-            template = None
+def builder(input_templates: list[str]):
+    for input_template in input_templates:
+        template = load_template(input_template)
 
-    if template:
-        process_template(template, output_filename)
-        cleanup_references(output_filename)
+        if template:
+            output_filename: str = generate_output_filename(input_template)
+            process_template(template, input_template, output_filename)
+            if Path(output_filename).exists():
+                post_processing(output_filename)
