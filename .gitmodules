@@ -1,3 +1,0 @@
-[submodule "finder"]
-	path = builder/finder
-	url = https://github.com/gazwald/finder.git

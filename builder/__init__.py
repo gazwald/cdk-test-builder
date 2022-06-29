@@ -4,8 +4,8 @@ from pathlib import Path
 
 import yaml
 
+from builder.finder import Finder
 from builder.templates import class_template, function_template, header
-from finder.finder import Finder
 
 resource_exclusions: list[str] = ["AWS::CDK::Metadata"]
 method_references: dict[str, str] = {"MATCH_ANY_VALUE": "Match.any_value()"}
